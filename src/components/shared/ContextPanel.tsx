@@ -58,7 +58,7 @@ export const ContextPanel = () => {
             connectedApps.map(app => (
               <div key={app.id} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${app.status === 'connected' ? 'bg-emerald-400' : app.status === 'syncing' ? 'bg-amber-400 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                  <div className="h-2 w-2 rounded-full bg-emerald-400" />
                   <span className="text-sm text-foreground">{app.name}</span>
                 </div>
                 {app.lastSync && (
@@ -70,7 +70,10 @@ export const ContextPanel = () => {
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No integrations connected</p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">No apps connected yet.</p>
+              <p className="text-xs text-muted-foreground/70">Connect integrations to start syncing workspace activity.</p>
+            </div>
           )}
         </div>
       </div>

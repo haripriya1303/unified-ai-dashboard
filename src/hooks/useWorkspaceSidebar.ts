@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ConnectedApp } from '@/types/dashboard';
+import { useIntegrationStore } from './useIntegrationStore';
+import { useMemo } from 'react';
 
 export interface WorkspaceEvent {
   id: string;
@@ -14,6 +16,15 @@ export interface WorkspaceSidebarState {
   connectedApps: ConnectedApp[];
   recentEvents: WorkspaceEvent[];
 }
+
+const INTEGRATION_DISPLAY_NAMES: Record<string, string> = {
+  slack: 'Slack',
+  github: 'GitHub',
+  notion: 'Notion',
+  jira: 'Jira',
+  google: 'Google Workspace',
+  microsoft: 'Microsoft Workspace',
+};
 
 /*
 TEMP MOCK DATA
@@ -37,24 +48,21 @@ const fetchEvents = async (): Promise<WorkspaceEvent[]> => {
   }
 };
 
-const fetchSidebarData = async (): Promise<{ aiSummary: string; connectedApps: ConnectedApp[] }> => {
+const fetchSidebarData = async (): Promise<{ aiSummary: string }> => {
   // TODO: Connect to FastAPI backend GET /api/dashboard
   try {
     const { data } = await api.get('/dashboard');
-    return { aiSummary: data.ai_summary, connectedApps: data.connected_apps };
+    return { aiSummary: data.ai_summary };
   } catch {
     return {
       aiSummary: "You have 2 active tasks today. Sarah is waiting on your PR review for the onboarding flow. The staging deploy completed successfully — consider promoting to production.",
-      connectedApps: [
-        { id: '1', name: 'Slack', icon: 'slack', status: 'connected', lastSync: '2 min ago' },
-        { id: '2', name: 'GitHub', icon: 'github', status: 'connected', lastSync: '5 min ago' },
-        { id: '3', name: 'Notion', icon: 'notebook', status: 'disconnected' },
-      ],
     };
   }
 };
 
 export const useWorkspaceSidebar = () => {
+  const { connections } = useIntegrationStore();
+
   const dashboardQuery = useQuery({
     queryKey: ['workspace-sidebar'],
     queryFn: fetchSidebarData,
@@ -69,6 +77,19 @@ export const useWorkspaceSidebar = () => {
     staleTime: 10000,
   });
 
+  // Get connected apps from integration store state
+  const connectedApps = useMemo(() => {
+    return Object.entries(connections)
+      .filter(([_, connection]) => connection?.status === 'connected')
+      .map(([id, connection]) => ({
+        id,
+        name: INTEGRATION_DISPLAY_NAMES[id] || id,
+        icon: id,
+        status: 'connected' as const,
+        lastSync: connection.email ? 'Syncing...' : undefined, // TODO: Replace with backend timestamp from FastAPI
+      }));
+  }, [connections]);
+
   // Group events by source
   const groupedEvents = (eventsQuery.data ?? []).reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
     if (!acc[evt.source]) acc[evt.source] = [];
@@ -78,7 +99,7 @@ export const useWorkspaceSidebar = () => {
 
   return {
     aiSummary: dashboardQuery.data?.aiSummary ?? null,
-    connectedApps: dashboardQuery.data?.connectedApps ?? [],
+    connectedApps,
     recentEvents: eventsQuery.data ?? [],
     groupedEvents,
     isLoading: dashboardQuery.isLoading,
