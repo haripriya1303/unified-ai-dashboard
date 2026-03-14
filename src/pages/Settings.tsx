@@ -1,11 +1,25 @@
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Sun, Moon, User, Shield, Bell } from 'lucide-react';
+import { useNotificationSettings } from '@/hooks/useNotificationSettings';
+import ChangePasswordModal from '@/components/settings/ChangePasswordModal';
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { settings, updateSetting } = useNotificationSettings();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+
+  const notificationToggles: { key: keyof typeof settings; label: string }[] = [
+    { key: 'workspaceNotifications', label: 'Enable workspace notifications' },
+    { key: 'emailAlerts', label: 'Enable email alerts' },
+    { key: 'integrationActivityAlerts', label: 'Enable integration activity alerts' },
+    { key: 'aiDailySummary', label: 'Enable AI daily summary' },
+  ];
 
   const sections = [
     {
@@ -43,12 +57,35 @@ const SettingsPage = () => {
     {
       title: 'Notifications',
       icon: Bell,
-      content: <p className="text-sm text-muted-foreground">Notification preferences will be available when backend is connected.</p>,
+      content: (
+        <div className="space-y-4">
+          {notificationToggles.map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between">
+              <Label htmlFor={key} className="text-sm text-foreground cursor-pointer">{label}</Label>
+              <Switch
+                id={key}
+                checked={settings[key]}
+                onCheckedChange={(v) => updateSetting(key, v)}
+              />
+            </div>
+          ))}
+        </div>
+      ),
     },
     {
       title: 'Security',
       icon: Shield,
-      content: <p className="text-sm text-muted-foreground">Security settings will be available when backend is connected.</p>,
+      content: (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-foreground">Password</p>
+            <p className="text-xs text-muted-foreground">Update your account password</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setPasswordModalOpen(true)} className="text-xs h-7">
+            Change Password
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -63,6 +100,8 @@ const SettingsPage = () => {
           {section.content}
         </div>
       ))}
+
+      <ChangePasswordModal open={passwordModalOpen} onOpenChange={setPasswordModalOpen} />
     </div>
   );
 };

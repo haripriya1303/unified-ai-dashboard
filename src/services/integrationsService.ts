@@ -17,6 +17,7 @@ export const integrationsService = {
         { id: '3', name: 'Notion', description: 'Documentation and knowledge base', icon: 'notebook', status: 'disconnected', category: 'productivity' },
         { id: '4', name: 'Jira', description: 'Project tracking and management', icon: 'kanban', status: 'disconnected', category: 'project-management' },
         { id: '5', name: 'Google Workspace', description: 'Email, calendar, and documents', icon: 'mail', status: 'connected', category: 'productivity', lastSync: '10 min ago', eventsCount: 56 },
+        { id: '6', name: 'Microsoft Workspace', description: 'Email, meetings, chats, and calendar from Microsoft services.', icon: 'microsoft', status: 'disconnected', category: 'communication' },
       ];
     }
   },
