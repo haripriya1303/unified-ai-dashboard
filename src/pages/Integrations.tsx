@@ -158,7 +158,7 @@ const IntegrationsPage = () => {
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
         onConnect={handleConnectSubmit}
-        loading={connectingId ? store.connectionLoading[connectingId] : false}
+        loading={connectingId ? connectionLoading[connectingId] : false}
         integrationId={connectingId}
       />
 
