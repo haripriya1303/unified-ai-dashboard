@@ -102,14 +102,36 @@ export const useWorkspaceSidebar = () => {
 
   // Merge: show integrations that are connected in mock data OR in the Zustand store,
   // but respect explicit disconnections in the store
+  // Merge mock data and store state: store overrides take priority
   const connectedApps = useMemo(() => {
     const apps: ConnectedApp[] = [];
     const seen = new Set<string>();
 
-    // First, add apps from the Zustand store (user-connected)
+    // First pass: process all integrations from the fetched list (mock/backend)
+    if (integrationsQuery.data) {
+      for (const integration of integrationsQuery.data) {
+        // Store status overrides mock status
+        const storeStatus = integrationStatus[integration.id];
+        const storeConnection = connections[integration.id];
+        const effectiveStatus = storeStatus || integration.status;
+
+        if (effectiveStatus === 'connected') {
+          seen.add(integration.id);
+          apps.push({
+            id: integration.id,
+            name: integration.name,
+            icon: integration.icon,
+            status: 'connected',
+            lastSync: storeConnection?.lastSynced || integration.lastSync || 'Syncing...',
+          });
+        }
+      }
+    }
+
+    // Second pass: add any store-only connections not in the fetched list
     for (const [id, connection] of Object.entries(connections)) {
+      if (seen.has(id)) continue;
       if (connection?.status === 'connected') {
-        seen.add(id);
         apps.push({
           id,
           name: INTEGRATION_DISPLAY_NAMES[id] || id,
@@ -120,34 +142,18 @@ export const useWorkspaceSidebar = () => {
       }
     }
 
-    // Then, add mock-data connected integrations that haven't been explicitly disconnected
-    if (integrationsQuery.data) {
-      for (const integration of integrationsQuery.data) {
-        if (seen.has(integration.id)) continue;
-        // If the store has an explicit status for this integration, use that
-        const storeStatus = integrationStatus[integration.id];
-        const effectiveStatus = storeStatus || integration.status;
-        if (effectiveStatus === 'connected') {
-          apps.push({
-            id: integration.id,
-            name: integration.name,
-            icon: integration.icon,
-            status: 'connected',
-            lastSync: integration.lastSync || 'Syncing...',
-          });
-        }
-      }
-    }
-
     return apps;
   }, [connections, integrationStatus, integrationsQuery.data]);
 
-  // Group events by source
-  const groupedEvents = (eventsQuery.data ?? []).reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
-    if (!acc[evt.source]) acc[evt.source] = [];
-    acc[evt.source].push(evt);
-    return acc;
-  }, {});
+  // Filter events to only show sources from connected integrations
+  const connectedAppNames = new Set(connectedApps.map(a => a.name));
+  const groupedEvents = (eventsQuery.data ?? [])
+    .filter(evt => connectedAppNames.has(evt.source))
+    .reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
+      if (!acc[evt.source]) acc[evt.source] = [];
+      acc[evt.source].push(evt);
+      return acc;
+    }, {});
 
   return {
     aiSummary: dashboardQuery.data?.aiSummary ?? null,
