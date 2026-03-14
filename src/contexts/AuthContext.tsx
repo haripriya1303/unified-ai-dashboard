@@ -99,8 +99,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
   };
 
+  const updateUserName = (name: string) => {
+    setUser(prev => prev ? { ...prev, name } : prev);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, loginWithGoogle, logout, updateUserName }}>
       {children}
     </AuthContext.Provider>
   );
