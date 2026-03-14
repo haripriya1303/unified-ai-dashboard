@@ -32,7 +32,13 @@ const IntegrationsPage = () => {
     queryFn: integrationsService.getIntegrations,
   });
 
-  const store = useIntegrationStore();
+  const connectIntegration = useIntegrationStore(s => s.connectIntegration);
+  const disconnectIntegration = useIntegrationStore(s => s.disconnectIntegration);
+  const integrationStatus = useIntegrationStore(s => s.integrationStatus);
+  const connectionPhase = useIntegrationStore(s => s.connectionPhase);
+  const connectionLoading = useIntegrationStore(s => s.connectionLoading);
+  const getStatus = useIntegrationStore(s => s.getStatus);
+  const getPhase = useIntegrationStore(s => s.getPhase);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
