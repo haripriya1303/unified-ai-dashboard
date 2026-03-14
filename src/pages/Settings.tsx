@@ -86,7 +86,7 @@ const SettingsPage = () => {
           {nameChanged && (
             <Button
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 w-full md:w-auto"
               onClick={handleSaveProfile}
               disabled={isSaving}
             >
