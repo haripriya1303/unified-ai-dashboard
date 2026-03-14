@@ -76,7 +76,7 @@ const SettingsPage = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="max-w-sm"
+              className="w-full md:max-w-sm"
             />
           </div>
           <div className="space-y-1.5">
