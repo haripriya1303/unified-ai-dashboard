@@ -48,19 +48,14 @@ const fetchEvents = async (): Promise<WorkspaceEvent[]> => {
   }
 };
 
-const fetchSidebarData = async (): Promise<{ aiSummary: string; connectedApps: ConnectedApp[] }> => {
+const fetchSidebarData = async (): Promise<{ aiSummary: string }> => {
   // TODO: Connect to FastAPI backend GET /api/dashboard
   try {
     const { data } = await api.get('/dashboard');
-    return { aiSummary: data.ai_summary, connectedApps: data.connected_apps };
+    return { aiSummary: data.ai_summary };
   } catch {
     return {
       aiSummary: "You have 2 active tasks today. Sarah is waiting on your PR review for the onboarding flow. The staging deploy completed successfully — consider promoting to production.",
-      connectedApps: [
-        { id: '1', name: 'Slack', icon: 'slack', status: 'connected', lastSync: '2 min ago' },
-        { id: '2', name: 'GitHub', icon: 'github', status: 'connected', lastSync: '5 min ago' },
-        { id: '3', name: 'Notion', icon: 'notebook', status: 'disconnected' },
-      ],
     };
   }
 };
