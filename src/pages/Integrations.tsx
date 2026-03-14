@@ -69,7 +69,7 @@ const IntegrationsPage = () => {
   const handleDisconnectConfirm = () => {
     if (!disconnectingIntegration) return;
     // TODO: Connect to backend API POST /api/integrations/disconnect
-    store.disconnectIntegration(disconnectingIntegration.id);
+    disconnectIntegration(disconnectingIntegration.id);
     setDisconnectModalOpen(false);
     setDisconnectingIntegration(null);
   };
