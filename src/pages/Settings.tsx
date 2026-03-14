@@ -149,7 +149,7 @@ const SettingsPage = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-2xl animate-fade-in">
+    <div className="space-y-6 max-w-2xl mx-auto px-4 md:px-0 animate-fade-in">
       {sections.map(section => (
         <div key={section.title} className="rounded-xl border border-border/50 bg-card/30 p-5 surface-glow">
           <div className="flex items-center gap-2 mb-4">
