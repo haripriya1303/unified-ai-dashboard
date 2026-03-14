@@ -1,0 +1,19 @@
+# Virtual environments
+.venv/
+venv/
+
+# Environment variables
+.env
+/backend/.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Packaging
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

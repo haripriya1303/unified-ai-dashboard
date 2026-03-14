@@ -1,0 +1,171 @@
+"""Webhook receivers: Slack, GitHub, Jira, Notion. Verify signature, normalize, store events."""
+import hmac
+import hashlib
+import json
+import uuid
+from datetime import datetime
+
+from fastapi import APIRouter, Request, HTTPException, Header
+from sqlalchemy import select
+
+from app.config import get_settings
+from app.db.session import async_session_factory
+from app.db.models.event import Event
+from app.db.models.user import User
+
+router = APIRouter()
+
+
+def _get_user_id_from_request(request: Request, x_user_id: str | None = None) -> str | None:
+    """Resolve user_id for webhook: header X-User-Id (dev) or first user (dev)."""
+    if x_user_id:
+        return x_user_id
+    # Optional: parse body for workspace id and look up user_integrations
+    return None
+
+
+async def _store_event(user_id: str, source: str, event_text: str) -> None:
+    async with async_session_factory() as session:
+        r = await session.execute(select(User).where(User.id == user_id))
+        if r.scalar_one_or_none() is None:
+            return
+        ev = Event(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            source=source,
+            event=event_text[:512],
+            event_at=datetime.utcnow(),
+        )
+        session.add(ev)
+        await session.commit()
+
+
+# ---- Slack ----
+def _verify_slack(request: Request, body: bytes, secret: str) -> bool:
+    """Verify X-Slack-Signature: v0=<hmac_sha256(body)>."""
+    sig = request.headers.get("X-Slack-Signature", "")
+    if not sig.startswith("v0="):
+        return False
+    expected = "v0=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
+
+@router.post("/slack")
+async def webhook_slack(
+    request: Request,
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+):
+    """POST /api/webhooks/slack — verify signature, normalize, store event."""
+    body = await request.body()
+    settings = get_settings()
+    if settings.slack_signing_secret and not _verify_slack(request, body, settings.slack_signing_secret):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    # Normalize: type, text, user, etc.
+    event_type = data.get("type", "event")
+    event_text = data.get("event", {}).get("text", "") if isinstance(data.get("event"), dict) else str(data)[:200]
+    if not event_text:
+        event_text = f"Slack {event_type}"
+    user_id = _get_user_id_from_request(request, x_user_id)
+    if user_id:
+        await _store_event(user_id, "Slack", event_text)
+    return {"ok": True}
+
+
+# ---- GitHub ----
+def _verify_github(payload: bytes, signature: str, secret: str) -> bool:
+    """Verify X-Hub-Signature-256: sha256=<hmac_sha256(payload)>."""
+    if not signature.startswith("sha256="):
+        return False
+    expected = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature, expected)
+
+
+@router.post("/github")
+async def webhook_github(
+    request: Request,
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+):
+    """POST /api/webhooks/github — verify signature, normalize, store event."""
+    body = await request.body()
+    sig = request.headers.get("X-Hub-Signature-256", "")
+    settings = get_settings()
+    if settings.github_webhook_secret and not _verify_github(body, sig, settings.github_webhook_secret):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    action = data.get("action", "")
+    repo = data.get("repository", {}).get("full_name", "repo")
+    event_text = f"GitHub {action}: {repo}"
+    user_id = _get_user_id_from_request(request, x_user_id)
+    if user_id:
+        await _store_event(user_id, "GitHub", event_text)
+    return {"ok": True}
+
+
+# ---- Jira ----
+def _verify_jira(request: Request, body: bytes, secret: str) -> bool:
+    """Optional: Jira often uses HMAC or shared secret in header."""
+    if not secret:
+        return True
+    # Jira webhook secret can be sent in X-Webhook-Secret or similar
+    provided = request.headers.get("X-Webhook-Secret", "")
+    return hmac.compare_digest(provided, secret)
+
+
+@router.post("/jira")
+async def webhook_jira(
+    request: Request,
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+):
+    """POST /api/webhooks/jira — verify (if configured), normalize, store event."""
+    body = await request.body()
+    settings = get_settings()
+    if settings.jira_webhook_secret and not _verify_jira(request, body, settings.jira_webhook_secret):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    webhook_event = data.get("webhookEvent", "jira")
+    event_text = f"Jira {webhook_event}"
+    user_id = _get_user_id_from_request(request, x_user_id)
+    if user_id:
+        await _store_event(user_id, "Jira", event_text)
+    return {"ok": True}
+
+
+# ---- Notion ----
+def _verify_notion(request: Request, body: bytes, secret: str) -> bool:
+    if not secret:
+        return True
+    # Notion uses X-Notion-Signature or similar
+    provided = request.headers.get("X-Notion-Signature", "")
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(provided, expected)
+
+
+@router.post("/notion")
+async def webhook_notion(
+    request: Request,
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+):
+    """POST /api/webhooks/notion — verify (if configured), normalize, store event."""
+    body = await request.body()
+    settings = get_settings()
+    if settings.notion_webhook_secret and not _verify_notion(request, body, settings.notion_webhook_secret):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    event_text = "Notion update"
+    user_id = _get_user_id_from_request(request, x_user_id)
+    if user_id:
+        await _store_event(user_id, "Notion", event_text)
+    return {"ok": True}

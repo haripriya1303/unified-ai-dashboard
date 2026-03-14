@@ -1,0 +1,40 @@
+# FastAPI & server
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database
+
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+psycopg2-binary==2.9.9
+
+# Auth
+python-jose[cryptography]==3.3.0
+httpx==0.28.1
+
+# AI / LLM
+openai==1.57.2
+
+# Hugging Face (embeddings / semantic search)
+transformers==4.46.3
+sentence-transformers==3.3.1
+torch==2.5.1
+
+# Groq LLM API
+groq==0.11.0
+
+# Redis
+redis==5.2.1
+
+# Config & env
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+
+# Webhooks (signature verification)
+#hmac-standard-library==1.0.0
+
+# Utilities
+python-dotenv==1.0.1
