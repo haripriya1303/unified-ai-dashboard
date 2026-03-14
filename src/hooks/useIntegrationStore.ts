@@ -7,10 +7,6 @@ export interface IntegrationConnection {
   connectedApps: string[];
   email?: string;
   domain?: string;
-  connectionString?: string;
-  tenantId?: string;
-  clientId?: string;
-  clientSecret?: string;
 }
 
 export interface IntegrationState {
@@ -55,7 +51,7 @@ export const useIntegrationStore = () => {
       }));
 
       toast({
-        title: 'Integration connected',
+        title: 'Connection successful',
         description: 'Integration will activate once backend API is connected.',
       });
     } catch {
@@ -75,12 +71,18 @@ export const useIntegrationStore = () => {
   }, []);
 
   const disconnectIntegration = useCallback((id: string) => {
+    // TODO: Replace with FastAPI endpoint POST /api/integrations/disconnect
     setState(prev => ({
       ...prev,
       integrationStatus: { ...prev.integrationStatus, [id]: 'disconnected' },
       connectionSuccess: { ...prev.connectionSuccess, [id]: false },
       connections: { ...prev.connections, [id]: undefined as any },
     }));
+
+    toast({
+      title: 'Integration removed',
+      description: 'The integration has been disconnected from your workspace.',
+    });
   }, []);
 
   const getStatus = useCallback((id: string) => {
