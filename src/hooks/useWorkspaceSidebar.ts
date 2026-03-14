@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ConnectedApp } from '@/types/dashboard';
 import { useIntegrationStore } from './useIntegrationStore';
+import { integrationsService } from '@/services/integrationsService';
 import { useMemo } from 'react';
 
 export interface WorkspaceEvent {
@@ -24,6 +25,21 @@ const INTEGRATION_DISPLAY_NAMES: Record<string, string> = {
   jira: 'Jira',
   google: 'Google Workspace',
   microsoft: 'Microsoft Workspace',
+  '1': 'Slack',
+  '2': 'GitHub',
+  '3': 'Notion',
+  '4': 'Jira',
+  '5': 'Google Workspace',
+  '6': 'Microsoft Workspace',
+};
+
+const INTEGRATION_ICON_MAP: Record<string, string> = {
+  '1': 'slack',
+  '2': 'github',
+  '3': 'notebook',
+  '4': 'kanban',
+  '5': 'mail',
+  '6': 'microsoft',
 };
 
 /*
@@ -61,7 +77,14 @@ const fetchSidebarData = async (): Promise<{ aiSummary: string }> => {
 };
 
 export const useWorkspaceSidebar = () => {
-  const { connections } = useIntegrationStore();
+  const { connections, integrationStatus } = useIntegrationStore();
+
+  // Fetch the integrations list (includes mock data status)
+  const integrationsQuery = useQuery({
+    queryKey: ['integrations'],
+    queryFn: integrationsService.getIntegrations,
+    staleTime: 30000,
+  });
 
   const dashboardQuery = useQuery({
     queryKey: ['workspace-sidebar'],
@@ -77,18 +100,47 @@ export const useWorkspaceSidebar = () => {
     staleTime: 10000,
   });
 
-  // Get connected apps from global integration store state
+  // Merge: show integrations that are connected in mock data OR in the Zustand store,
+  // but respect explicit disconnections in the store
   const connectedApps = useMemo(() => {
-    return Object.entries(connections)
-      .filter(([_, connection]) => connection?.status === 'connected')
-      .map(([id, connection]) => ({
-        id,
-        name: INTEGRATION_DISPLAY_NAMES[id] || id,
-        icon: id,
-        status: 'connected' as const,
-        lastSync: connection?.lastSynced || 'Syncing...', // TODO: Replace with backend timestamp from FastAPI
-      }));
-  }, [connections]);
+    const apps: ConnectedApp[] = [];
+    const seen = new Set<string>();
+
+    // First, add apps from the Zustand store (user-connected)
+    for (const [id, connection] of Object.entries(connections)) {
+      if (connection?.status === 'connected') {
+        seen.add(id);
+        apps.push({
+          id,
+          name: INTEGRATION_DISPLAY_NAMES[id] || id,
+          icon: INTEGRATION_ICON_MAP[id] || id,
+          status: 'connected',
+          lastSync: connection?.lastSynced || 'Syncing...',
+        });
+      }
+    }
+
+    // Then, add mock-data connected integrations that haven't been explicitly disconnected
+    if (integrationsQuery.data) {
+      for (const integration of integrationsQuery.data) {
+        if (seen.has(integration.id)) continue;
+        // If the store has an explicit status for this integration, use that
+        const storeStatus = integrationStatus[integration.id];
+        const effectiveStatus = storeStatus || integration.status;
+        if (effectiveStatus === 'connected') {
+          apps.push({
+            id: integration.id,
+            name: integration.name,
+            icon: integration.icon,
+            status: 'connected',
+            lastSync: integration.lastSync || 'Syncing...',
+          });
+        }
+      }
+    }
+
+    return apps;
+  }, [connections, integrationStatus, integrationsQuery.data]);
 
   // Group events by source
   const groupedEvents = (eventsQuery.data ?? []).reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
