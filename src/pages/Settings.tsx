@@ -27,18 +27,19 @@ const SettingsPage = () => {
     if (!user || !name.trim()) return;
     setIsSaving(true);
     try {
-      const { supabase } = await import('@/lib/supabase');
+      // Skip DB calls for demo user
+      if (user.id !== 'demo') {
+        const { supabase } = await import('@/lib/supabase');
 
-      // Update users table
-      const { error } = await supabase
-        .from('users')
-        .update({ name: name.trim(), updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        const { error } = await supabase
+          .from('users')
+          .update({ name: name.trim(), updated_at: new Date().toISOString() })
+          .eq('id', user.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Also update auth metadata
-      await supabase.auth.updateUser({ data: { name: name.trim() } });
+        await supabase.auth.updateUser({ data: { name: name.trim() } });
+      }
 
       // Update local state so sidebar reflects immediately
       updateUserName(name.trim());
