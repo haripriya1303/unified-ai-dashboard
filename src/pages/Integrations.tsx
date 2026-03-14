@@ -86,6 +86,7 @@ const IntegrationsPage = () => {
           const effectiveStatus = overrideStatus || integration.status;
           const isConnected = effectiveStatus === 'connected';
           const isSyncing = effectiveStatus === 'syncing';
+          const phase = store.getPhase(integration.id);
 
           return (
             <div
@@ -109,10 +110,12 @@ const IntegrationsPage = () => {
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {isSyncing ? 'Syncing...' : integration.lastSync || 'Just now'}
+                      {phase === 'verifying' ? 'Waiting for workspace approval...' : isSyncing ? 'Syncing...' : integration.lastSync || 'Just now'}
                     </span>
                     {integration.eventsCount && <span className="tabular-nums">{integration.eventsCount} events</span>}
                   </div>
+                ) : phase === 'failed' ? (
+                  <span className="text-xs text-destructive">Connection failed — try again</span>
                 ) : (
                   <span className="text-xs text-muted-foreground">Not connected</span>
                 )}
@@ -129,10 +132,10 @@ const IntegrationsPage = () => {
                       variant="default"
                       size="sm"
                       className="text-xs h-7"
-                      disabled={isSyncing}
+                      disabled={isSyncing || phase === 'connecting' || phase === 'verifying'}
                       onClick={() => handleConnect(integration)}
                     >
-                      {isSyncing ? 'Syncing…' : 'Connect'}
+                      {phase === 'connecting' || phase === 'verifying' ? 'Connecting…' : 'Connect'}
                     </Button>
                   )}
                 </div>
