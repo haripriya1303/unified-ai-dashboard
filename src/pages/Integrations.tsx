@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Github, Notebook, Kanban, Mail, Clock, Zap, Monitor } from 'lucide-react';
 import type { Integration } from '@/types/integrations';
 import { useIntegrationStore } from '@/hooks/useIntegrationStore';
-import ConnectMicrosoftModal from '@/components/integrations/ConnectMicrosoftModal';
-import type { MicrosoftConnectionData } from '@/components/integrations/ConnectMicrosoftModal';
+import ConnectIntegrationModal from '@/components/integrations/ConnectIntegrationModal';
+import DisconnectModal from '@/components/integrations/DisconnectModal';
+import type { ConnectionFormData } from '@/components/integrations/ConnectIntegrationModal';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   slack: MessageSquare,
@@ -32,26 +33,39 @@ const IntegrationsPage = () => {
   });
 
   const store = useIntegrationStore();
-  const [microsoftModalOpen, setMicrosoftModalOpen] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
+  const [disconnectingIntegration, setDisconnectingIntegration] = useState<Integration | null>(null);
 
   const handleConnect = (integration: Integration) => {
-    if (integration.name === 'Microsoft Workspace') {
-      setMicrosoftModalOpen(true);
-    }
+    setConnectingId(integration.id);
+    setConnectModalOpen(true);
   };
 
-  const handleMicrosoftConnect = async (connectionData: MicrosoftConnectionData) => {
-    const apps = Object.entries(connectionData.apps).filter(([, v]) => v).map(([k]) => k);
-    await store.connectIntegration('6', {
-      connectedApps: apps,
-      email: connectionData.email,
-      domain: connectionData.domain,
-      connectionString: connectionData.connectionString,
-      tenantId: connectionData.tenantId,
-      clientId: connectionData.clientId,
-      clientSecret: connectionData.clientSecret,
+  const handleConnectSubmit = async (formData: ConnectionFormData) => {
+    if (!connectingId) return;
+    const enabledFeatures = Object.entries(formData.features).filter(([, v]) => v).map(([k]) => k);
+    await store.connectIntegration(connectingId, {
+      connectedApps: enabledFeatures,
+      email: formData.email,
+      domain: formData.domain,
     });
-    setMicrosoftModalOpen(false);
+    setConnectModalOpen(false);
+    setConnectingId(null);
+  };
+
+  const handleDisconnectClick = (integration: Integration) => {
+    setDisconnectingIntegration(integration);
+    setDisconnectModalOpen(true);
+  };
+
+  const handleDisconnectConfirm = () => {
+    if (!disconnectingIntegration) return;
+    // TODO: Connect to backend API POST /api/integrations/disconnect
+    store.disconnectIntegration(disconnectingIntegration.id);
+    setDisconnectModalOpen(false);
+    setDisconnectingIntegration(null);
   };
 
   if (isLoading) {
@@ -102,15 +116,26 @@ const IntegrationsPage = () => {
                 ) : (
                   <span className="text-xs text-muted-foreground">Not connected</span>
                 )}
-                <Button
-                  variant={isConnected ? 'outline' : 'default'}
-                  size="sm"
-                  className="text-xs h-7"
-                  disabled={isSyncing}
-                  onClick={() => !isConnected && handleConnect(integration)}
-                >
-                  {isSyncing ? 'Syncing…' : isConnected ? 'Configure' : 'Connect'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isConnected ? (
+                    <>
+                      <Button variant="outline" size="sm" className="text-xs h-7">Configure</Button>
+                      <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={() => handleDisconnectClick(integration)}>
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="text-xs h-7"
+                      disabled={isSyncing}
+                      onClick={() => handleConnect(integration)}
+                    >
+                      {isSyncing ? 'Syncing…' : 'Connect'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -120,11 +145,19 @@ const IntegrationsPage = () => {
         <p className="text-sm text-muted-foreground text-center py-12">Connect integrations to start syncing data.</p>
       )}
 
-      <ConnectMicrosoftModal
-        open={microsoftModalOpen}
-        onOpenChange={setMicrosoftModalOpen}
-        onConnect={handleMicrosoftConnect}
-        loading={store.connectionLoading['6']}
+      <ConnectIntegrationModal
+        open={connectModalOpen}
+        onOpenChange={setConnectModalOpen}
+        onConnect={handleConnectSubmit}
+        loading={connectingId ? store.connectionLoading[connectingId] : false}
+        integrationId={connectingId}
+      />
+
+      <DisconnectModal
+        open={disconnectModalOpen}
+        onOpenChange={setDisconnectModalOpen}
+        integrationName={disconnectingIntegration?.name || ''}
+        onConfirm={handleDisconnectConfirm}
       />
     </div>
   );
