@@ -52,7 +52,7 @@ const IntegrationsPage = () => {
   const handleConnectSubmit = async (formData: ConnectionFormData) => {
     if (!connectingId) return;
     const enabledFeatures = Object.entries(formData.features).filter(([, v]) => v).map(([k]) => k);
-    await store.connectIntegration(connectingId, {
+    await connectIntegration(connectingId, {
       connectedApps: enabledFeatures,
       email: formData.email,
       domain: formData.domain,
