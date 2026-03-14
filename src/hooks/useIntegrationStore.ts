@@ -1,6 +1,5 @@
-import { useState, useCallback } from 'react';
+import { create } from 'zustand';
 import { toast } from '@/hooks/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
 
 export type ConnectionPhase = 'idle' | 'connecting' | 'verifying' | 'connected' | 'failed';
 
@@ -11,6 +10,7 @@ export interface IntegrationConnection {
   connectedApps: string[];
   email?: string;
   domain?: string;
+  lastSynced?: string;
 }
 
 export interface IntegrationState {
@@ -20,28 +20,29 @@ export interface IntegrationState {
   connectionSuccess: Record<string, boolean>;
   connectionError: Record<string, string | null>;
   connections: Record<string, IntegrationConnection>;
+  connectIntegration: (id: string, connection: Partial<IntegrationConnection>) => Promise<void>;
+  disconnectIntegration: (id: string) => void;
+  getStatus: (id: string) => 'connected' | 'disconnected' | 'syncing' | null;
+  getPhase: (id: string) => ConnectionPhase;
 }
 
-export const useIntegrationStore = () => {
-  const queryClient = useQueryClient();
+// TODO: Replace local state with FastAPI integration API
+// GET /api/integrations
+export const useIntegrationStore = create<IntegrationState>((set, get) => ({
+  integrationStatus: {},
+  connectionPhase: {},
+  connectionLoading: {},
+  connectionSuccess: {},
+  connectionError: {},
+  connections: {},
 
-  const [state, setState] = useState<IntegrationState>({
-    integrationStatus: {},
-    connectionPhase: {},
-    connectionLoading: {},
-    connectionSuccess: {},
-    connectionError: {},
-    connections: {},
-  });
-
-  const connectIntegration = useCallback(async (id: string, connection: Partial<IntegrationConnection>) => {
+  connectIntegration: async (id: string, connection: Partial<IntegrationConnection>) => {
     // Phase 1: Connecting
-    setState(prev => ({
-      ...prev,
+    set(prev => ({
       connectionLoading: { ...prev.connectionLoading, [id]: true },
       connectionError: { ...prev.connectionError, [id]: null },
-      connectionPhase: { ...prev.connectionPhase, [id]: 'connecting' },
-      integrationStatus: { ...prev.integrationStatus, [id]: 'syncing' },
+      connectionPhase: { ...prev.connectionPhase, [id]: 'connecting' as const },
+      integrationStatus: { ...prev.integrationStatus, [id]: 'syncing' as const },
     }));
 
     try {
@@ -49,42 +50,42 @@ export const useIntegrationStore = () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Phase 2: Verifying
-      setState(prev => ({
-        ...prev,
-        connectionPhase: { ...prev.connectionPhase, [id]: 'verifying' },
+      set(prev => ({
+        connectionPhase: { ...prev.connectionPhase, [id]: 'verifying' as const },
       }));
 
       // TODO: Replace with FastAPI endpoint — poll or wait for verification
       await new Promise(resolve => setTimeout(resolve, 1200));
 
       // Phase 3: Connected
-      setState(prev => ({
-        ...prev,
+      set(prev => ({
         connectionLoading: { ...prev.connectionLoading, [id]: false },
         connectionSuccess: { ...prev.connectionSuccess, [id]: true },
-        connectionPhase: { ...prev.connectionPhase, [id]: 'connected' },
-        integrationStatus: { ...prev.integrationStatus, [id]: 'connected' },
+        connectionPhase: { ...prev.connectionPhase, [id]: 'connected' as const },
+        integrationStatus: { ...prev.integrationStatus, [id]: 'connected' as const },
         connections: {
           ...prev.connections,
-          [id]: { integrationId: id, status: 'connected', phase: 'connected', connectedApps: [], ...connection },
+          [id]: {
+            integrationId: id,
+            status: 'connected',
+            phase: 'connected',
+            connectedApps: [],
+            lastSynced: 'Just now',
+            ...connection,
+          },
         },
       }));
-
-      // Invalidate sidebar queries so connected apps + events refresh
-      queryClient.invalidateQueries({ queryKey: ['workspace-sidebar'] });
-      queryClient.invalidateQueries({ queryKey: ['workspace-events'] });
 
       toast({
         title: 'Connection successful',
         description: 'Integration will activate once backend API is connected.',
       });
     } catch {
-      setState(prev => ({
-        ...prev,
+      set(prev => ({
         connectionLoading: { ...prev.connectionLoading, [id]: false },
-        connectionPhase: { ...prev.connectionPhase, [id]: 'failed' },
+        connectionPhase: { ...prev.connectionPhase, [id]: 'failed' as const },
         connectionError: { ...prev.connectionError, [id]: 'Failed to connect' },
-        integrationStatus: { ...prev.integrationStatus, [id]: 'disconnected' },
+        integrationStatus: { ...prev.integrationStatus, [id]: 'disconnected' as const },
       }));
 
       toast({
@@ -93,40 +94,32 @@ export const useIntegrationStore = () => {
         variant: 'destructive',
       });
     }
-  }, [queryClient]);
+  },
 
-  const disconnectIntegration = useCallback((id: string) => {
+  disconnectIntegration: (id: string) => {
     // TODO: Replace with FastAPI endpoint POST /api/integrations/disconnect
-    setState(prev => ({
-      ...prev,
-      integrationStatus: { ...prev.integrationStatus, [id]: 'disconnected' },
-      connectionPhase: { ...prev.connectionPhase, [id]: 'idle' },
-      connectionSuccess: { ...prev.connectionSuccess, [id]: false },
-      connections: { ...prev.connections, [id]: undefined as any },
-    }));
-
-    queryClient.invalidateQueries({ queryKey: ['workspace-sidebar'] });
-    queryClient.invalidateQueries({ queryKey: ['workspace-events'] });
+    set(prev => {
+      const newConnections = { ...prev.connections };
+      delete newConnections[id];
+      return {
+        integrationStatus: { ...prev.integrationStatus, [id]: 'disconnected' as const },
+        connectionPhase: { ...prev.connectionPhase, [id]: 'idle' as const },
+        connectionSuccess: { ...prev.connectionSuccess, [id]: false },
+        connections: newConnections,
+      };
+    });
 
     toast({
       title: 'Integration removed',
       description: 'The integration has been disconnected from your workspace.',
     });
-  }, [queryClient]);
+  },
 
-  const getStatus = useCallback((id: string) => {
-    return state.integrationStatus[id] || null;
-  }, [state.integrationStatus]);
+  getStatus: (id: string) => {
+    return get().integrationStatus[id] || null;
+  },
 
-  const getPhase = useCallback((id: string): ConnectionPhase => {
-    return state.connectionPhase[id] || 'idle';
-  }, [state.connectionPhase]);
-
-  return {
-    ...state,
-    connectIntegration,
-    disconnectIntegration,
-    getStatus,
-    getPhase,
-  };
-};
+  getPhase: (id: string) => {
+    return get().connectionPhase[id] || 'idle';
+  },
+}));
