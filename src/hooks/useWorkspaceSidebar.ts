@@ -145,12 +145,15 @@ export const useWorkspaceSidebar = () => {
     return apps;
   }, [connections, integrationStatus, integrationsQuery.data]);
 
-  // Group events by source
-  const groupedEvents = (eventsQuery.data ?? []).reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
-    if (!acc[evt.source]) acc[evt.source] = [];
-    acc[evt.source].push(evt);
-    return acc;
-  }, {});
+  // Filter events to only show sources from connected integrations
+  const connectedAppNames = new Set(connectedApps.map(a => a.name));
+  const groupedEvents = (eventsQuery.data ?? [])
+    .filter(evt => connectedAppNames.has(evt.source))
+    .reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
+      if (!acc[evt.source]) acc[evt.source] = [];
+      acc[evt.source].push(evt);
+      return acc;
+    }, {});
 
   return {
     aiSummary: dashboardQuery.data?.aiSummary ?? null,
