@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ConnectedApp } from '@/types/dashboard';
+import { useIntegrationStore } from './useIntegrationStore';
+import { useMemo } from 'react';
 
 export interface WorkspaceEvent {
   id: string;
@@ -14,6 +16,15 @@ export interface WorkspaceSidebarState {
   connectedApps: ConnectedApp[];
   recentEvents: WorkspaceEvent[];
 }
+
+const INTEGRATION_DISPLAY_NAMES: Record<string, string> = {
+  slack: 'Slack',
+  github: 'GitHub',
+  notion: 'Notion',
+  jira: 'Jira',
+  google: 'Google Workspace',
+  microsoft: 'Microsoft Workspace',
+};
 
 /*
 TEMP MOCK DATA
