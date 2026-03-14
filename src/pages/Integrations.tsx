@@ -32,7 +32,13 @@ const IntegrationsPage = () => {
     queryFn: integrationsService.getIntegrations,
   });
 
-  const store = useIntegrationStore();
+  const connectIntegration = useIntegrationStore(s => s.connectIntegration);
+  const disconnectIntegration = useIntegrationStore(s => s.disconnectIntegration);
+  const integrationStatus = useIntegrationStore(s => s.integrationStatus);
+  const connectionPhase = useIntegrationStore(s => s.connectionPhase);
+  const connectionLoading = useIntegrationStore(s => s.connectionLoading);
+  const getStatus = useIntegrationStore(s => s.getStatus);
+  const getPhase = useIntegrationStore(s => s.getPhase);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
@@ -46,7 +52,7 @@ const IntegrationsPage = () => {
   const handleConnectSubmit = async (formData: ConnectionFormData) => {
     if (!connectingId) return;
     const enabledFeatures = Object.entries(formData.features).filter(([, v]) => v).map(([k]) => k);
-    await store.connectIntegration(connectingId, {
+    await connectIntegration(connectingId, {
       connectedApps: enabledFeatures,
       email: formData.email,
       domain: formData.domain,
@@ -63,7 +69,7 @@ const IntegrationsPage = () => {
   const handleDisconnectConfirm = () => {
     if (!disconnectingIntegration) return;
     // TODO: Connect to backend API POST /api/integrations/disconnect
-    store.disconnectIntegration(disconnectingIntegration.id);
+    disconnectIntegration(disconnectingIntegration.id);
     setDisconnectModalOpen(false);
     setDisconnectingIntegration(null);
   };
@@ -82,11 +88,11 @@ const IntegrationsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data?.map((integration: Integration) => {
           const Icon = ICON_MAP[integration.icon] || Zap;
-          const overrideStatus = store.getStatus(integration.id);
+          const overrideStatus = getStatus(integration.id);
           const effectiveStatus = overrideStatus || integration.status;
           const isConnected = effectiveStatus === 'connected';
           const isSyncing = effectiveStatus === 'syncing';
-          const phase = store.getPhase(integration.id);
+          const phase = getPhase(integration.id);
 
           return (
             <div
@@ -152,7 +158,7 @@ const IntegrationsPage = () => {
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
         onConnect={handleConnectSubmit}
-        loading={connectingId ? store.connectionLoading[connectingId] : false}
+        loading={connectingId ? connectionLoading[connectingId] : false}
         integrationId={connectingId}
       />
 

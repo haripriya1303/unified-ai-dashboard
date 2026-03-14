@@ -77,7 +77,7 @@ export const useWorkspaceSidebar = () => {
     staleTime: 10000,
   });
 
-  // Get connected apps from integration store state
+  // Get connected apps from global integration store state
   const connectedApps = useMemo(() => {
     return Object.entries(connections)
       .filter(([_, connection]) => connection?.status === 'connected')
@@ -86,7 +86,7 @@ export const useWorkspaceSidebar = () => {
         name: INTEGRATION_DISPLAY_NAMES[id] || id,
         icon: id,
         status: 'connected' as const,
-        lastSync: connection.email ? 'Syncing...' : undefined, // TODO: Replace with backend timestamp from FastAPI
+        lastSync: connection?.lastSynced || 'Syncing...', // TODO: Replace with backend timestamp from FastAPI
       }));
   }, [connections]);
 
