@@ -76,7 +76,7 @@ const SettingsPage = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="max-w-sm"
+              className="w-full md:max-w-sm"
             />
           </div>
           <div className="space-y-1.5">
@@ -86,7 +86,7 @@ const SettingsPage = () => {
           {nameChanged && (
             <Button
               size="sm"
-              className="text-xs h-7"
+              className="text-xs h-7 w-full md:w-auto"
               onClick={handleSaveProfile}
               disabled={isSaving}
             >
@@ -149,7 +149,7 @@ const SettingsPage = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-2xl animate-fade-in">
+    <div className="space-y-6 max-w-2xl mx-auto px-4 md:px-0 animate-fade-in">
       {sections.map(section => (
         <div key={section.title} className="rounded-xl border border-border/50 bg-card/30 p-5 surface-glow">
           <div className="flex items-center gap-2 mb-4">
