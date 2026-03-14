@@ -61,6 +61,8 @@ const fetchSidebarData = async (): Promise<{ aiSummary: string }> => {
 };
 
 export const useWorkspaceSidebar = () => {
+  const { connections } = useIntegrationStore();
+
   const dashboardQuery = useQuery({
     queryKey: ['workspace-sidebar'],
     queryFn: fetchSidebarData,
@@ -75,6 +77,19 @@ export const useWorkspaceSidebar = () => {
     staleTime: 10000,
   });
 
+  // Get connected apps from integration store state
+  const connectedApps = useMemo(() => {
+    return Object.entries(connections)
+      .filter(([_, connection]) => connection?.status === 'connected')
+      .map(([id, connection]) => ({
+        id,
+        name: INTEGRATION_DISPLAY_NAMES[id] || id,
+        icon: id,
+        status: 'connected' as const,
+        lastSync: connection.email ? 'Syncing...' : undefined, // TODO: Replace with backend timestamp from FastAPI
+      }));
+  }, [connections]);
+
   // Group events by source
   const groupedEvents = (eventsQuery.data ?? []).reduce<Record<string, WorkspaceEvent[]>>((acc, evt) => {
     if (!acc[evt.source]) acc[evt.source] = [];
@@ -84,7 +99,7 @@ export const useWorkspaceSidebar = () => {
 
   return {
     aiSummary: dashboardQuery.data?.aiSummary ?? null,
-    connectedApps: dashboardQuery.data?.connectedApps ?? [],
+    connectedApps,
     recentEvents: eventsQuery.data ?? [],
     groupedEvents,
     isLoading: dashboardQuery.isLoading,
