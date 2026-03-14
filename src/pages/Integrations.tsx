@@ -88,11 +88,11 @@ const IntegrationsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data?.map((integration: Integration) => {
           const Icon = ICON_MAP[integration.icon] || Zap;
-          const overrideStatus = store.getStatus(integration.id);
+          const overrideStatus = getStatus(integration.id);
           const effectiveStatus = overrideStatus || integration.status;
           const isConnected = effectiveStatus === 'connected';
           const isSyncing = effectiveStatus === 'syncing';
-          const phase = store.getPhase(integration.id);
+          const phase = getPhase(integration.id);
 
           return (
             <div
