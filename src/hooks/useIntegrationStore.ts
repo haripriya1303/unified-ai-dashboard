@@ -37,49 +37,31 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   connections: {},
 
   connectIntegration: async (id: string, connection: Partial<IntegrationConnection>) => {
-    // Phase 1: Connecting
     set(prev => ({
       connectionLoading: { ...prev.connectionLoading, [id]: true },
-      connectionError: { ...prev.connectionError, [id]: null },
-      connectionPhase: { ...prev.connectionPhase, [id]: 'connecting' as const },
-      integrationStatus: { ...prev.integrationStatus, [id]: 'syncing' as const },
     }));
 
     try {
-      // TODO: Replace with FastAPI endpoint POST /api/integrations/connect
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Phase 2: Verifying
-      set(prev => ({
-        connectionPhase: { ...prev.connectionPhase, [id]: 'verifying' as const },
-      }));
-
-      // TODO: Replace with FastAPI endpoint — poll or wait for verification
-      await new Promise(resolve => setTimeout(resolve, 1200));
-
-      // Phase 3: Connected
-      set(prev => ({
-        connectionLoading: { ...prev.connectionLoading, [id]: false },
-        connectionSuccess: { ...prev.connectionSuccess, [id]: true },
-        connectionPhase: { ...prev.connectionPhase, [id]: 'connected' as const },
-        integrationStatus: { ...prev.integrationStatus, [id]: 'connected' as const },
-        connections: {
-          ...prev.connections,
-          [id]: {
-            integrationId: id,
-            status: 'connected',
-            phase: 'connected',
-            connectedApps: [],
-            lastSynced: 'Just now',
-            ...connection,
-          },
-        },
-      }));
-
-      toast({
-        title: 'Connection successful',
-        description: 'Integration will activate once backend API is connected.',
-      });
+      const { default: api } = await import('@/services/api');
+      
+      const providerMap: Record<string, string> = {
+        '1': 'slack',
+        '2': 'github',
+        '3': 'notion',
+        '4': 'jira',
+        '5': 'google',
+        '6': 'microsoft'
+      };
+      
+      const provider = providerMap[id];
+      if (!provider) throw new Error("Unknown provider");
+      
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+      
+      window.location.href = `${baseUrl}/integrations/${provider}/oauth?token=${token}`;
     } catch {
       set(prev => ({
         connectionLoading: { ...prev.connectionLoading, [id]: false },
@@ -96,8 +78,13 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
     }
   },
 
-  disconnectIntegration: (id: string) => {
-    // TODO: Replace with FastAPI endpoint POST /api/integrations/disconnect
+  disconnectIntegration: async (id: string) => {
+    try {
+      const { default: api } = await import('@/services/api');
+      await api.post('/integrations/disconnect', { integration_id: id });
+    } catch (e) {
+      console.error(e);
+    }
     set(prev => {
       const newConnections = { ...prev.connections };
       delete newConnections[id];

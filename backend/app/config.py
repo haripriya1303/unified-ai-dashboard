@@ -15,19 +15,29 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
 
     # Dev auth bypass (local only)
-    dev_auth_bypass: bool = False
+    #dev_auth_bypass: bool = False #-- changed 
+    dev_auth_bypass: bool = True
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
     # LLM
-    openai_api_key: str = ""
-    openai_api_base: str = "https://api.openai.com/v1"
-    openai_model: str = "gpt-4o-mini"
+    # openai_api_key: str = ""
+    # openai_api_base: str = "https://api.openai.com/v1"
+    # openai_model: str = "gpt-4o-mini"
 
-    # Embeddings
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimension: int = 1536
+    # # Embeddings
+    # embedding_model: str = "text-embedding-3-small"
+    # embedding_dimension: int = 1536
+    # LLM - Groq
+    groq_api_key: str = ""
+    groq_api_base: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "llama3-70b-8192"
+
+    # Embeddings - HuggingFace
+    huggingface_api_key: str = ""
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dimension: int = 384
 
     # Webhooks
     slack_signing_secret: str = ""

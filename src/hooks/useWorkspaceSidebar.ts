@@ -42,38 +42,14 @@ const INTEGRATION_ICON_MAP: Record<string, string> = {
   '6': 'microsoft',
 };
 
-/*
-TEMP MOCK DATA
-REMOVE WHEN FASTAPI BACKEND IS READY
-*/
-const MOCK_EVENTS: WorkspaceEvent[] = [
-  { id: '1', source: 'Slack', event: 'Slack message from Alex', timestamp: '2 min ago' },
-  { id: '2', source: 'Slack', event: 'New mention in #dev', timestamp: '10 min ago' },
-  { id: '3', source: 'GitHub', event: 'PR #421 merged by Sarah', timestamp: '5 min ago' },
-  { id: '4', source: 'GitHub', event: 'Deployment notification', timestamp: '1 hr ago' },
-  { id: '5', source: 'Google Workspace', event: 'New email from client', timestamp: '4 min ago' },
-];
-
 const fetchEvents = async (): Promise<WorkspaceEvent[]> => {
-  // TODO: Connect to FastAPI backend GET /api/events
-  try {
-    const { data } = await api.get('/events');
-    return data;
-  } catch {
-    return MOCK_EVENTS;
-  }
+  const { data } = await api.get('/events');
+  return data;
 };
 
 const fetchSidebarData = async (): Promise<{ aiSummary: string }> => {
-  // TODO: Connect to FastAPI backend GET /api/dashboard
-  try {
-    const { data } = await api.get('/dashboard');
-    return { aiSummary: data.ai_summary };
-  } catch {
-    return {
-      aiSummary: "You have 2 active tasks today. Sarah is waiting on your PR review for the onboarding flow. The staging deploy completed successfully — consider promoting to production.",
-    };
-  }
+  const { data } = await api.get('/dashboard');
+  return { aiSummary: data.ai_summary };
 };
 
 export const useWorkspaceSidebar = () => {

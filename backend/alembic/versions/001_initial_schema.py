@@ -18,7 +18,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # Match config default
-EMBEDDING_DIM = 1536
+EMBEDDING_DIM = 384
 
 
 def upgrade() -> None:
@@ -85,6 +85,7 @@ def upgrade() -> None:
         sa.Column("actor", sa.String(255), nullable=False),
         sa.Column("event_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
         sa.Column("external_id", sa.String(255), nullable=True),
+        sa.Column("url", sa.String(1024), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
     )
     op.create_index("ix_workspace_activities_user_id", "workspace_activities", ["user_id"])

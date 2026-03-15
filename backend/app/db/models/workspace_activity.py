@@ -21,6 +21,7 @@ class WorkspaceActivity(Base):
     actor: Mapped[str] = mapped_column(String(255), nullable=False)
     event_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     user = relationship("User", back_populates="workspace_activities")

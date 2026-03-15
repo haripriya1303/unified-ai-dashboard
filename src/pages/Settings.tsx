@@ -27,19 +27,13 @@ const SettingsPage = () => {
     if (!user || !name.trim()) return;
     setIsSaving(true);
     try {
-      // Skip DB calls for demo user
-      if (user.id !== 'demo') {
-        const { supabase } = await import('@/lib/supabase');
-
-        const { error } = await supabase
-          .from('users')
-          .update({ name: name.trim(), updated_at: new Date().toISOString() })
-          .eq('id', user.id);
-
-        if (error) throw error;
-
-        await supabase.auth.updateUser({ data: { name: name.trim() } });
-      }
+      const { supabase } = await import('@/lib/supabase');
+      // Update auth metadata in Supabase
+      await supabase.auth.updateUser({ data: { name: name.trim() } });
+      
+      // Update backend database via API
+      const { default: api } = await import('@/services/api');
+      await api.patch('/users/me', { name: name.trim() });
 
       // Update local state so sidebar reflects immediately
       updateUserName(name.trim());

@@ -24,19 +24,26 @@ def _get_user_id_from_request(request: Request, x_user_id: str | None = None) ->
     return None
 
 
-async def _store_event(user_id: str, source: str, event_text: str) -> None:
+async def _store_workspace_activity(user_id: str, source: str, event_type: str, title: str, description: str, actor: str, url: str | None = None) -> None:
+    from app.db.models.workspace_activity import WorkspaceActivity
     async with async_session_factory() as session:
         r = await session.execute(select(User).where(User.id == user_id))
         if r.scalar_one_or_none() is None:
             return
-        ev = Event(
+        dt = datetime.utcnow()
+        activity = WorkspaceActivity(
             id=str(uuid.uuid4()),
             user_id=user_id,
-            source=source,
-            event=event_text[:512],
-            event_at=datetime.utcnow(),
+            type=str(event_type)[:32] if event_type else "event",
+            title=str(title)[:512] if title else "",
+            description=str(description)[:1024] if description else "",
+            source=str(source)[:64] if source else "unknown",
+            actor=str(actor)[:255] if actor else "system",
+            event_at=dt,
+            url=url,
+            created_at=dt
         )
-        session.add(ev)
+        session.add(activity)
         await session.commit()
 
 
@@ -65,13 +72,15 @@ async def webhook_slack(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
     # Normalize: type, text, user, etc.
-    event_type = data.get("type", "event")
-    event_text = data.get("event", {}).get("text", "") if isinstance(data.get("event"), dict) else str(data)[:200]
+    event_type = data.get("type", "message")
+    event_payload = data.get("event") or {}
+    event_text = event_payload.get("text", "") if isinstance(event_payload, dict) else str(data)[:200]
     if not event_text:
         event_text = f"Slack {event_type}"
+    actor = event_payload.get("user", "Slack") if isinstance(event_payload, dict) else "Slack"
     user_id = _get_user_id_from_request(request, x_user_id)
     if user_id:
-        await _store_event(user_id, "Slack", event_text)
+        await _store_workspace_activity(user_id, "Slack", event_type, f"Slack {event_type}", event_text, actor, None)
     return {"ok": True}
 
 
@@ -100,11 +109,29 @@ async def webhook_github(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
     action = data.get("action", "")
+    event_name = request.headers.get("X-GitHub-Event", "event")
     repo = data.get("repository", {}).get("full_name", "repo")
-    event_text = f"GitHub {action}: {repo}"
+    sender = data.get("sender", {}).get("login", "GitHub")
+
+    if event_name == "push":
+        commits = data.get("commits", [])
+        desc = f"Pushed {len(commits)} commits"
+        url = data.get("compare", "")
+    elif event_name == "pull_request":
+        desc = data.get("pull_request", {}).get("title", "")
+        url = data.get("pull_request", {}).get("html_url", "")
+    elif event_name == "issues":
+        desc = data.get("issue", {}).get("title", "")
+        url = data.get("issue", {}).get("html_url", "")
+    else:
+        desc = f"{event_name} on {repo}"
+        url = ""
+
+    title = f"GitHub {action or event_name}: {repo}"
+    
     user_id = _get_user_id_from_request(request, x_user_id)
     if user_id:
-        await _store_event(user_id, "GitHub", event_text)
+        await _store_workspace_activity(user_id, "GitHub", event_name, title, desc, sender, url)
     return {"ok": True}
 
 
@@ -133,10 +160,16 @@ async def webhook_jira(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON")
     webhook_event = data.get("webhookEvent", "jira")
-    event_text = f"Jira {webhook_event}"
+    issue = data.get("issue", {})
+    key = issue.get("key", "")
+    desc = issue.get("fields", {}).get("summary", "")
+    actor = data.get("user", {}).get("displayName", "Jira") or "Jira"
+    url = f"/browse/{key}" if key else ""
+
+    title = f"Jira {webhook_event}: {key}"
     user_id = _get_user_id_from_request(request, x_user_id)
     if user_id:
-        await _store_event(user_id, "Jira", event_text)
+        await _store_workspace_activity(user_id, "Jira", webhook_event, title, desc, actor, url)
     return {"ok": True}
 
 
@@ -167,5 +200,5 @@ async def webhook_notion(
     event_text = "Notion update"
     user_id = _get_user_id_from_request(request, x_user_id)
     if user_id:
-        await _store_event(user_id, "Notion", event_text)
+        await _store_workspace_activity(user_id, "Notion", "update", "Notion update", event_text, "Notion", None)
     return {"ok": True}

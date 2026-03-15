@@ -6,7 +6,7 @@ class UserMe(BaseModel):
     id: str
     email: str
     name: str | None = None
-
+    avatar_url: str | None = None  
     class Config:
         from_attributes = True
 

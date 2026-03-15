@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.activity_item import ActivityItem
 
+from app.db.models.workspace_activity import WorkspaceActivity
 
 async def get_activity_list(session: AsyncSession, user_id: str) -> list[dict]:
     """Return activity items for Activity page (camelCase for frontend)."""
@@ -11,7 +12,13 @@ async def get_activity_list(session: AsyncSession, user_id: str) -> list[dict]:
         select(ActivityItem).where(ActivityItem.user_id == user_id).order_by(ActivityItem.updated_at.desc())
     )
     items = r.scalars().all()
-    return [
+    
+    r_ws = await session.execute(
+        select(WorkspaceActivity).where(WorkspaceActivity.user_id == user_id).order_by(WorkspaceActivity.created_at.desc())
+    )
+    ws_items = r_ws.scalars().all()
+    
+    result = [
         {
             "id": i.id,
             "title": i.title,
@@ -25,3 +32,20 @@ async def get_activity_list(session: AsyncSession, user_id: str) -> list[dict]:
         }
         for i in items
     ]
+    
+    for w in ws_items:
+        result.append({
+            "id": w.id,
+            "title": w.title,
+            "description": w.description or "",
+            "status": "completed",
+            "priority": "medium",
+            "assignee": w.actor,
+            "source": w.source,
+            "createdAt": w.created_at.isoformat() if w.created_at else "",
+            "updatedAt": w.created_at.isoformat() if w.created_at else "",
+        })
+        
+    # Sort combined result by createdAt descending
+    result.sort(key=lambda x: x["createdAt"], reverse=True)
+    return result

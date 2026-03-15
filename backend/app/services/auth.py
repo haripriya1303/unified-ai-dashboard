@@ -15,9 +15,9 @@ DEV_USER_ID = "dev-user"
 
 def _get_bearer_token(request: Request) -> Optional[str]:
     auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return None
-    return auth[7:].strip()
+    if auth and auth.startswith("Bearer "):
+        return auth[7:].strip()
+    return request.query_params.get("token")
 
 
 async def get_current_user_from_request(

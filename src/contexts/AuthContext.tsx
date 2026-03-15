@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initAuth = async () => {
       try {
         const { supabase } = await import('@/lib/supabase');
+        
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           if (session?.user) {
             setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.name });
@@ -41,15 +42,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
           setIsLoading(false);
         });
-        const { data: { session } } = await supabase.auth.getSession();
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
         if (session?.user) {
           setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.name });
         }
         setIsLoading(false);
         return () => subscription.unsubscribe();
-      } catch {
-        // Supabase not configured — use demo mode
-        setUser({ id: 'demo', email: 'demo@workspace.ai', name: 'Demo User' });
+      } catch (err) {
+        console.error("Auth init error:", err);
+        setUser(null);
         setIsLoading(false);
       }
     };
@@ -57,36 +61,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const { supabase } = await import('@/lib/supabase');
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    } catch {
-      // Demo fallback
-      setUser({ id: 'demo', email, name: 'Demo User' });
-    }
+    const { supabase } = await import('@/lib/supabase');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    try {
-      const { supabase } = await import('@/lib/supabase');
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-      if (error) throw error;
-      if (data.user) {
-        await supabase.from('users').upsert({ id: data.user.id, name, email, updated_at: new Date().toISOString() });
-      }
-    } catch {
-      setUser({ id: 'demo', email, name });
+    const { supabase } = await import('@/lib/supabase');
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+    if (error) throw error;
+    if (data.user) {
+      await supabase.from('users').upsert({ id: data.user.id, name, email, updated_at: new Date().toISOString() });
     }
   };
 
   const loginWithGoogle = async () => {
-    try {
-      const { supabase } = await import('@/lib/supabase');
-      await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard' } });
-    } catch {
-      setUser({ id: 'demo', email: 'demo@workspace.ai', name: 'Demo User' });
-    }
+    const { supabase } = await import('@/lib/supabase');
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard' } });
+    if (error) throw error;
   };
 
   const logout = async () => {

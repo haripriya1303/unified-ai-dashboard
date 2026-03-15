@@ -5,8 +5,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
-from app.ai.embeddings import embed_text
-from app.ai.llm import chat_completion
+#from app.ai.embeddings import embed_text
+#from app.ai.llm import chat_completion
+from sentence_transformers import SentenceTransformer
+from groq import AsyncGroq
+import os
+
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+groq_client = AsyncGroq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
+async def chat_completion(system: str, user: str):
+
+    completion = await groq_client.chat.completions.create(
+        model="llama3-70b-8192",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ],
+        temperature=0.2
+    )
+
+    return completion.choices[0].message.content
 
 TOP_K = 5
 
@@ -58,6 +80,12 @@ async def rag_query(session: AsyncSession, user_id: str, query: str) -> tuple[st
     answer = await chat_completion(system, user_message)
     return answer, sources
 
+async def embed_text(text: str):
+    try:
+        embedding = model.encode(text)
+        return embedding.tolist()
+    except Exception:
+        return None
 
 def _fallback_answer(query: str) -> str:
     return (
