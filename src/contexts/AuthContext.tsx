@@ -29,9 +29,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
     const initAuth = async () => {
       try {
+        // 1. Check URL for custom backend JWT (token redirect)
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+          // Save token to localStorage
+          localStorage.setItem('access_token', token);
+          
+          // Decode JWT (basic base64 decode of payload)
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            setUser({ id: payload.sub, email: payload.email, name: payload.name });
+            
+            // Remove token from URL for clean history
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setIsLoading(false);
+            return; // Skip Supabase init since we are authenticated via custom backend
+          } catch (e) {
+            console.error("Invalid token format", e);
+          }
+        }
+        
+        // 2. Check localStorage for existing custom token
+        const storedToken = localStorage.getItem('access_token');
+        if (storedToken) {
+          try {
+            const payload = JSON.parse(atob(storedToken.split('.')[1]));
+            if (payload.exp * 1000 > Date.now()) {
+              setUser({ id: payload.sub, email: payload.email, name: payload.name });
+              setIsLoading(false);
+              return;
+            } else {
+              localStorage.removeItem('access_token');
+            }
+          } catch (e) {
+            localStorage.removeItem('access_token');
+          }
+        }
+
+        // 3. Fallback to Supabase auth check
         const { supabase } = await import('@/lib/supabase');
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -76,13 +115,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const loginWithGoogle = async () => {
-    const { supabase } = await import('@/lib/supabase');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/dashboard' } });
-    if (error) throw error;
+    window.location.href = "http://localhost:8000/api/auth/google/login";
   };
 
   const logout = async () => {
     try {
+      localStorage.removeItem('access_token');
       const { supabase } = await import('@/lib/supabase');
       await supabase.auth.signOut();
     } catch {

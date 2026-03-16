@@ -1,11 +1,11 @@
 import asyncio
 import httpx
+from app.services.auth import create_access_token
+from app.config import get_settings
 
 BASE_URL = "http://localhost:8000/api"
-HEADERS = {
-    # We use Bearer token or rely on dev_auth_bypass if it's set to True in config
-    "Authorization": "Bearer test-dev-token"
-}
+# Tokens will be generated dynamically
+HEADERS = {}
 
 endpoints = [
     ("GET", "/dashboard", None),
@@ -17,6 +17,15 @@ endpoints = [
 ]
 
 async def test_endpoints():
+    settings = get_settings()
+    jwt_payload = {
+        "sub": "dev-user",
+        "email": "dev@localhost",
+        "name": "Dev User"
+    }
+    jwt_token = create_access_token(jwt_payload, settings.secret_key)
+    HEADERS["Authorization"] = f"Bearer {jwt_token}"
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         for method, endpoint, payload in endpoints:
             url = f"{BASE_URL}{endpoint}"

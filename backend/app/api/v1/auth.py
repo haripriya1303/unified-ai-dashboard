@@ -1,0 +1,124 @@
+import httpx
+import uuid
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+import urllib.parse
+import os
+
+from app.api.deps import AsyncSessionDep
+from app.config import get_settings
+from app.db.models.user import User
+
+# We need to import our token generation function. We'll add it to services/auth.py.
+from app.services.auth import create_access_token
+
+router = APIRouter()
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+@router.get("/google/login")
+async def google_login(request: Request):
+    settings = get_settings()
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise HTTPException(status_code=500, detail="Google Client ID/Secret not configured.")
+
+    redirect_uri = "http://localhost:8000/api/auth/google/callback"
+
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    
+    auth_url = f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+    return RedirectResponse(auth_url)
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    session: AsyncSessionDep,
+    code: Optional[str] = None,
+    error: Optional[str] = None,
+):
+    settings = get_settings()
+    if error:
+        raise HTTPException(status_code=400, detail=f"Google OAuth error: {error}")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    redirect_uri = "http://localhost:8000/api/auth/google/callback"
+
+    async with httpx.AsyncClient() as client:
+        # 1. Exchange code for token
+        data = {
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+        token_resp = await client.post(
+            GOOGLE_TOKEN_URL,
+            data=data,
+            headers={"Accept": "application/json"}
+        )
+        if token_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch token: {token_resp.text}")
+
+        token_data = token_resp.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=400, detail="No access token received")
+
+        # 2. Get user info
+        user_resp = await client.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch user info")
+        
+        user_info = user_resp.json()
+
+    email = user_info.get("email")
+    name = user_info.get("name")
+    if not email:
+        raise HTTPException(status_code=400, detail="No email provided by Google")
+
+    # 3. Find or create user
+    result = await session.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user:
+        if name and user.name != name:
+            user.name = name
+        await session.flush()
+    else:
+        user = User(id=str(uuid.uuid4()), email=email, name=name)
+        session.add(user)
+        await session.flush()
+        
+    # Commit changes before issuing token
+    await session.commit()
+    await session.refresh(user)
+
+    # 4. Create custom JWT
+    jwt_payload = {
+        "sub": user.id,
+        "email": user.email,
+        "name": user.name
+    }
+    jwt_token = create_access_token(jwt_payload, settings.secret_key)
+
+    # 5. Redirect to frontend with token
+    frontend_url = "http://localhost:5173/dashboard"
+    return RedirectResponse(url=f"{frontend_url}?token={jwt_token}")

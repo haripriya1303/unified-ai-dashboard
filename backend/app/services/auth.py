@@ -1,5 +1,6 @@
 """Supabase JWT verification and current user resolution."""
 from typing import Optional
+from datetime import datetime, timedelta
 
 from fastapi import Request
 from jose import jwt, JWTError
@@ -34,7 +35,7 @@ async def get_current_user_from_request(
         if not token:
             return await _get_or_create_dev_user(session)
         try:
-            _decode_supabase_jwt(token, settings)
+            _decode_jwt(token, settings)
         except (JWTError, Exception):
             return await _get_or_create_dev_user(session)
 
@@ -42,7 +43,7 @@ async def get_current_user_from_request(
         return None
 
     try:
-        payload = _decode_supabase_jwt(token, settings)
+        payload = _decode_jwt(token, settings)
     except JWTError:
         return None
 
@@ -69,15 +70,31 @@ async def get_current_user_from_request(
     return user
 
 
-def _decode_supabase_jwt(token: str, settings) -> dict:
-    """Decode and verify Supabase JWT. Raises JWTError if invalid."""
-    return jwt.decode(
-        token,
-        settings.supabase_jwt_secret,
-        algorithms=["HS256"],
-        audience="authenticated",
-        options={"verify_aud": True},
-    )
+def create_access_token(data: dict, secret_key: str) -> str:
+    """Create a new custom JWT access token."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=7)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, secret_key, algorithm="HS256")
+
+def _decode_jwt(token: str, settings) -> dict:
+    """Decode and verify either a custom JWT or Supabase JWT. Raises JWTError if invalid."""
+    try:
+        # 1. Try custom backend JWT
+        return jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=["HS256"]
+        )
+    except JWTError:
+        # 2. Fallback to Supabase JWT
+        return jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"verify_aud": True},
+        )
 
 
 async def _get_or_create_dev_user(session: AsyncSession) -> Optional[User]:

@@ -7,7 +7,14 @@ const api = axios.create({
 
 // Auth interceptor — will use Supabase session token when available
 api.interceptors.request.use(async (config) => {
-  // Dynamically import to avoid circular deps
+  // Check custom backend token first
+  const localToken = localStorage.getItem('access_token');
+  if (localToken) {
+    config.headers.Authorization = `Bearer ${localToken}`;
+    return config;
+  }
+
+  // Fallback to Supabase
   try {
     const { supabase } = await import('@/lib/supabase');
     const { data: { session } } = await supabase.auth.getSession();

@@ -1,9 +1,11 @@
 """API v1 — all routes under /api."""
 from fastapi import APIRouter
 
-from app.api.v1 import users, dashboard, activity, events, search, integrations, assistant, webhooks
+from app.api.v1 import users, dashboard, activity, events, search, integrations, assistant, webhooks, auth
 
 router = APIRouter()
+
+router.include_router(auth.router, prefix="/auth", tags=["auth"])
 
 router.include_router(users.router, prefix="/users", tags=["users"])
 router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])

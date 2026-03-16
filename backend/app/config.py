@@ -16,7 +16,12 @@ class Settings(BaseSettings):
 
     # Dev auth bypass (local only)
     #dev_auth_bypass: bool = False #-- changed 
-    dev_auth_bypass: bool = True
+    dev_auth_bypass: bool = False
+
+    # Auth
+    secret_key: str = "your-super-secret-key"
+    google_client_id: str = ""
+    google_client_secret: str = ""
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
