@@ -27,7 +27,7 @@ async def google_login(request: Request):
     if not settings.google_client_id or not settings.google_client_secret:
         raise HTTPException(status_code=500, detail="Google Client ID/Secret not configured.")
 
-    redirect_uri = "http://localhost:8000/api/auth/google/callback"
+    redirect_uri = f"{settings.api_url}/api/auth/google/callback"
 
     params = {
         "client_id": settings.google_client_id,
@@ -55,7 +55,7 @@ async def google_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
-    redirect_uri = "http://localhost:8000/api/auth/google/callback"
+    redirect_uri = f"{settings.api_url}/api/auth/google/callback"
 
     async with httpx.AsyncClient() as client:
         # 1. Exchange code for token
@@ -120,5 +120,4 @@ async def google_callback(
     jwt_token = create_access_token(jwt_payload, settings.secret_key)
 
     # 5. Redirect to frontend with token
-    frontend_url = "http://localhost:5173/dashboard"
-    return RedirectResponse(url=f"{frontend_url}?token={jwt_token}")
+    return RedirectResponse(url=f"{settings.frontend_url}/dashboard?token={jwt_token}")

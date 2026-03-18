@@ -18,9 +18,9 @@ groq_client = AsyncGroq(
 )
 
 async def chat_completion(system: str, user: str):
-
+    settings = get_settings()
     completion = await groq_client.chat.completions.create(
-        model="llama3-70b-8192",
+        model=settings.groq_model,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user}

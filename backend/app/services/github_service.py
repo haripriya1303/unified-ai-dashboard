@@ -10,6 +10,8 @@ from app.db.models.integration import Integration
 from app.db.models.workspace_activity import WorkspaceActivity
 from app.db.models.user import User
 
+from app.config import get_settings
+
 async def sync_github_activity(session: AsyncSession, user_id: str):
     # 1. Get user integration for GitHub
     stmt = (
@@ -115,7 +117,10 @@ async def register_github_webhooks(session: AsyncSession, user_id: str):
         "Accept": "application/vnd.github.v3+json"
     }
 
-    webhook_url = "https://api.example.com/api/webhooks/github"  # placeholder base url
+    
+    settings = get_settings()
+
+    webhook_url = f"{settings.api_url}/api/webhooks/github"  # placeholder base url
 
     async with httpx.AsyncClient() as client:
         repos_resp = await client.get("https://api.github.com/user/repos", headers=headers)

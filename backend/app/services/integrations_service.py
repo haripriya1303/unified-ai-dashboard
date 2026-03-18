@@ -82,7 +82,8 @@ async def connect_integration(
             last_sync_at=datetime.utcnow(),
         )
         session.add(ui)
-    await session.flush()
+    await session.commit()
+    await session.refresh(ui)
 
 
 async def disconnect_integration(
@@ -98,5 +99,5 @@ async def disconnect_integration(
     ui = r.scalar_one_or_none()
     if ui:
         ui.status = "disconnected"
-        session.add(ui)
-        await session.flush()
+        await session.commit()
+        await session.refresh(ui)

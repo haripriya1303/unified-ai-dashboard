@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     secret_key: str = "your-super-secret-key"
     google_client_id: str = ""
     google_client_secret: str = ""
+    frontend_url: str = "http://localhost:5173"
+    api_url: str = "http://localhost:8000"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -37,7 +39,7 @@ class Settings(BaseSettings):
     # LLM - Groq
     groq_api_key: str = ""
     groq_api_base: str = "https://api.groq.com/openai/v1"
-    groq_model: str = "llama3-70b-8192"
+    groq_model: str = "llama-3.3-70b-versatile"
 
     # Embeddings - HuggingFace
     huggingface_api_key: str = ""

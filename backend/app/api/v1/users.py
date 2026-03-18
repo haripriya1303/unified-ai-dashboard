@@ -29,6 +29,6 @@ async def update_me(
     if body.name is not None:
         current_user.name = body.name
     session.add(current_user)
-    await session.flush()
+    await session.commit()
     await session.refresh(current_user)
     return current_user

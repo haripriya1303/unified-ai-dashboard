@@ -67,8 +67,10 @@ async def integration_oauth(
     valid_providers = ["github", "slack", "google", "notion", "jira", "microsoft"]
     if provider not in valid_providers:
         raise HTTPException(status_code=400, detail="Invalid provider")
-        
-    auth_url = f"http://localhost:8000/api/integrations/{provider}/callback?state={current_user.id}&code=mock_oauth_code_123"
+    
+    from app.config import get_settings
+    settings = get_settings()
+    auth_url = f"{settings.api_url}/api/integrations/{provider}/callback?state={current_user.id}&code=mock_oauth_code_123"
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url=auth_url)
 
@@ -89,6 +91,8 @@ async def integration_oauth_callback(
     if not state or not code:
         raise HTTPException(status_code=400, detail="Missing state or code")
         
+    from app.config import get_settings
+    settings = get_settings()
     user_id = state
     
     # Resolve the internal integration UUID based on provider name
@@ -136,4 +140,4 @@ async def integration_oauth_callback(
         await register_github_webhooks(session, user_id)
     
     # Redirect back to frontend
-    return RedirectResponse(url="http://localhost:5173/integrations")
+    return RedirectResponse(url=f"{settings.frontend_url}/integrations")

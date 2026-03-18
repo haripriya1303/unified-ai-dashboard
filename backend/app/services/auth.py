@@ -62,11 +62,13 @@ async def get_current_user_from_request(
         user.email = email
         if name is not None:
             user.name = name
-        await session.flush()
+        await session.commit()
+        await session.refresh(user)
     else:
         user = User(id=sub, email=email, name=name)
         session.add(user)
-        await session.flush()
+        await session.commit()
+        await session.refresh(user)
     return user
 
 
@@ -109,5 +111,6 @@ async def _get_or_create_dev_user(session: AsyncSession) -> Optional[User]:
         name="Dev User",
     )
     session.add(user)
-    await session.flush()
+    await session.commit()
+    await session.refresh(user)
     return user
