@@ -115,7 +115,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const loginWithGoogle = async () => {
-    window.location.href = "http://localhost:8000/api/auth/google/login";
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    window.location.href = `${baseUrl}/auth/google/login`;
   };
 
   const logout = async () => {
