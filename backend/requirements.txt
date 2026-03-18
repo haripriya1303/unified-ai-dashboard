@@ -19,8 +19,10 @@ openai==1.57.2
 
 # Hugging Face (embeddings / semantic search)
 transformers==4.46.3
-sentence-transformers==3.3.1
-torch==2.5.1
+# sentence-transformers==3.3.1
+# torch==2.5.1
+sentence-transformers==2.7.0
+torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
 
 # Groq LLM API
 groq==0.11.0
